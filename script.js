@@ -1,70 +1,52 @@
+const API_URL = "http://localhost:8000";
 
-const chat = document.getElementById("chat");
-const input = document.getElementById("userInput");
+async function sendMessage() {
+    const input = document.getElementById("userInput");
+    const chat = document.getElementById("chat");
 
-function addMessage(message, type) {
-  const div = document.createElement("div");
-  div.className = "message " + type;
-  div.textContent = message;
-  chat.appendChild(div);
-  chat.scrollTop = chat.scrollHeight;
+    const message = input.value.trim();
+    if (!message) return;
+
+    addMessage(message, "user");
+    input.value = "";
+
+    const loading = addMessage("Thinking...", "bot");
+
+    try {
+        const response = await fetch(`${API_URL}/chat`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                message: message,
+                language: "auto",
+                session_id: "default"
+            })
+        });
+
+        if (!response.ok) {
+            throw new Error("Backend connection failed");
+        }
+
+        const data = await response.json();
+        loading.textContent = data.reply;
+
+    } catch (error) {
+        loading.textContent =
+            "AI server is not connected. Please start the backend.";
+    }
 }
 
-function getAIResponse(message) {
-  const text = message.toLowerCase();
+function addMessage(message, sender) {
+    const chat = document.getElementById("chat");
+    const div = document.createElement("div");
 
-  if (text.includes("hello") || text.includes("hi")) {
-    return "Hello! 👋 Welcome to Tech Assistant. How can I help you?";
-  }
+    div.className = `message ${sender}`;
+    div.textContent = message;
 
-  if (text.includes("your name")) {
-    return "I am Tech Assistant, your personal AI assistant.";
-  }
+    chat.appendChild(div);
+    chat.scrollTop = chat.scrollHeight;
 
-  if (text.includes("dns")) {
-    return "DNS means Domain Name System. It converts domain names into IP addresses.";
-  }
-
-  if (text.includes("dhcp")) {
-    return "DHCP automatically assigns IP addresses to devices in a network.";
-  }
-
-  if (text.includes("ip address")) {
-    return "An IP address is a unique network address assigned to a device.";
-  }
-
-  if (text.includes("ping")) {
-    return "Ping is used to test network connectivity between devices.";
-  }
-
-  if (text.includes("windows")) {
-    return "I can help with Windows installation, troubleshooting, drivers and system errors.";
-  }
-
-  if (text.includes("thank")) {
-    return "You're welcome! 😊";
-  }
-
-  return "I received your question! I am currently running in basic demo mode. AI API connection will be added in the next development stage.";
-}
-
-function sendMessage() {
-  const message = input.value.trim();
-
-  if (!message) return;
-
-  addMessage(message, "user");
-  input.value = "";
-
-  setTimeout(() => {
-    const response = getAIResponse(message);
-    addMessage(response, "bot");
-  }, 500);
-}
-
-input.addEventListener("keydown", function(event) {
-  if (event.key === "Enter") {
-    sendMessage();
-  }
-});
-      
+    return div;
+      }
