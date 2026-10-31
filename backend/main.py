@@ -1,13 +1,32 @@
-
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from datetime import datetime
-from ai_engine import ask_ai
+
+try:
+    from .ai_engine import ask_ai
+    from .database import (
+        initialize_database, save_message,
+        get_history, delete_history
+    )
+    from .memory import (
+        initialize_memory, save_memory,
+        get_memories, delete_memory, delete_all_memories
+    )
+except ImportError:
+    from ai_engine import ask_ai
+    from database import (
+        initialize_database, save_message,
+        get_history, delete_history
+    )
+    from memory import (
+        initialize_memory, save_memory,
+        get_memories, delete_memory, delete_all_memories
+    )
 
 app = FastAPI(
     title="Tech Assistant",
-    description="All-in-One Hybrid AI Assistant",
+    description="All-in-One AI Assistant",
     version="2.0.0"
 )
 
@@ -22,14 +41,23 @@ app.add_middleware(
 class ChatRequest(BaseModel):
     message: str
     language: str = "auto"
+    session_id: str = "default"
+
+class MemoryRequest(BaseModel):
+    user_id: str
+    memory: str
+
+@app.on_event("startup")
+def startup():
+    initialize_database()
+    initialize_memory()
 
 @app.get("/")
 def home():
     return {
         "name": "Tech Assistant",
         "version": "2.0.0",
-        "status": "Online",
-        "engine": "Hybrid AI"
+        "status": "Online"
     }
 
 @app.get("/health")
@@ -41,93 +69,26 @@ def health():
 
 @app.post("/chat")
 async def chat(request: ChatRequest):
-
     if not request.message.strip():
-        raise HTTPException(
-            status_code=400,
-            detail="Message cannot be empty"
-        )
+        raise HTTPException(status_code=400, detail="Message cannot be empty")
 
     try:
+        save_message(request.session_id, "user", request.message)
         reply = await ask_ai(request.message)
+        save_message(request.session_id, "assistant", reply)
 
         return {
             "assistant": "Tech Assistant",
-            "reply": reply,
-            "language": request.language,
-            "status": "success"
-        }
-
-    except Exception as error:
-        raise HTTPException(
-            status_code=503,
-            detail="AI service unavailable. Check provider configuration."
-        )
-
-@app.get("/features")
-def features():
-    return {
-        "general_ai": True,
-        "multilingual": True,
-        "it_support": True,
-        "coding": True,
-        "translation": True,
-        "writing": True,
-        "voice": "planned",
-        "web_search": "planned",
-        "image_generation": "planned",
-        "file_reader": "planned",
-        "smart_memory": "planned",
-        "chat_history": "planned",
-        "admin_panel": "planned"
-    }
-from database import (
-    initialize_database,
-    save_message,
-    get_history,
-    delete_history
-)
-import uuid
-@app.on_event("startup")
-def startup():
-    initialize_database() use
-    
-@app.post("/chat")
-async def chat(request: ChatRequest):
-
-    if not request.message.strip():
-        raise HTTPException(
-            status_code=400,
-            detail="Message cannot be empty"
-        )
-
-    session_id = request.session_id
-
-    try:
-        save_message(
-            session_id, "user", request.message
-        )
-
-        reply = await ask_ai(request.message)
-
-        save_message(
-            session_id, "assistant", reply
-        )
-
-        return {
-            "assistant": "Tech Assistant",
-            "session_id": session_id,
+            "session_id": request.session_id,
             "reply": reply,
             "status": "success"
         }
-
     except Exception:
         raise HTTPException(
             status_code=503,
-            detail="AI service unavailable"
+            detail="AI service unavailable. Check backend configuration."
         )
-        session_id: str = "default"
-        
+
 @app.get("/history/{session_id}")
 def history(session_id: str):
     return {
@@ -139,4 +100,30 @@ def history(session_id: str):
 def clear_history(session_id: str):
     delete_history(session_id)
     return {"status": "History deleted"}
-    
+
+@app.post("/memory")
+def add_memory(request: MemoryRequest):
+    if not request.user_id.strip() or not request.memory.strip():
+        raise HTTPException(status_code=400, detail="Missing information")
+
+    if len(request.memory) > 1000:
+        raise HTTPException(status_code=400, detail="Memory is too long")
+
+    save_memory(request.user_id, request.memory)
+    return {"status": "Memory saved"}
+
+@app.get("/memory/{user_id}")
+def view_memory(user_id: str):
+    return {"memories": get_memories(user_id)}
+
+@app.delete("/memory/{user_id}/{memory_id}")
+def remove_memory(user_id: str, memory_id: int):
+    if not delete_memory(user_id, memory_id):
+        raise HTTPException(status_code=404, detail="Memory not found")
+
+    return {"status": "Memory deleted"}
+
+@app.delete("/memory/{user_id}")
+def clear_memories(user_id: str):
+    delete_all_memories(user_id)
+    return {"status": "All memories deleted"}
