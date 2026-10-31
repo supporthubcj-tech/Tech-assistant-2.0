@@ -1,18 +1,20 @@
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+from datetime import datetime
+from ai_engine import ask_ai
 
 app = FastAPI(
-    title="Tech Assistant API",
-    description="All-in-One Multilingual AI Assistant",
-    version="1.0.0"
+    title="Tech Assistant",
+    description="All-in-One Hybrid AI Assistant",
+    version="2.0.0"
 )
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
-    allow_credentials=True,
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"]
 )
@@ -25,16 +27,57 @@ class ChatRequest(BaseModel):
 def home():
     return {
         "name": "Tech Assistant",
-        "status": "API Ready",
-        "type": "All-in-One AI"
+        "version": "2.0.0",
+        "status": "Online",
+        "engine": "Hybrid AI"
+    }
+
+@app.get("/health")
+def health():
+    return {
+        "status": "healthy",
+        "time": datetime.now().isoformat()
     }
 
 @app.post("/chat")
-def chat(request: ChatRequest):
+async def chat(request: ChatRequest):
+
+    if not request.message.strip():
+        raise HTTPException(
+            status_code=400,
+            detail="Message cannot be empty"
+        )
+
+    try:
+        reply = await ask_ai(request.message)
+
+        return {
+            "assistant": "Tech Assistant",
+            "reply": reply,
+            "language": request.language,
+            "status": "success"
+        }
+
+    except Exception as error:
+        raise HTTPException(
+            status_code=503,
+            detail="AI service unavailable. Check provider configuration."
+        )
+
+@app.get("/features")
+def features():
     return {
-        "user_message": request.message,
-        "language": request.language,
-        "reply": "AI connection is coming soon!",
-        "status": "demo"
+        "general_ai": True,
+        "multilingual": True,
+        "it_support": True,
+        "coding": True,
+        "translation": True,
+        "writing": True,
+        "voice": "planned",
+        "web_search": "planned",
+        "image_generation": "planned",
+        "file_reader": "planned",
+        "smart_memory": "planned",
+        "chat_history": "planned",
+        "admin_panel": "planned"
     }
-  
