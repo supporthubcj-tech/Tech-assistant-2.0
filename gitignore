@@ -1,0 +1,29 @@
+
+# Python
+__pycache__/
+*.py[cod]
+venv/
+.venv/
+.env
+
+# Database
+*.db
+*.sqlite3
+
+# Secrets
+secrets.json
+credentials.json
+
+# Logs
+*.log
+
+# Node
+node_modules/
+
+# Build files
+dist/
+build/
+
+# Editor
+.vscode/
+.idea/
