@@ -81,3 +81,62 @@ def features():
         "chat_history": "planned",
         "admin_panel": "planned"
     }
+from database import (
+    initialize_database,
+    save_message,
+    get_history,
+    delete_history
+)
+import uuid
+@app.on_event("startup")
+def startup():
+    initialize_database() use
+    
+@app.post("/chat")
+async def chat(request: ChatRequest):
+
+    if not request.message.strip():
+        raise HTTPException(
+            status_code=400,
+            detail="Message cannot be empty"
+        )
+
+    session_id = request.session_id
+
+    try:
+        save_message(
+            session_id, "user", request.message
+        )
+
+        reply = await ask_ai(request.message)
+
+        save_message(
+            session_id, "assistant", reply
+        )
+
+        return {
+            "assistant": "Tech Assistant",
+            "session_id": session_id,
+            "reply": reply,
+            "status": "success"
+        }
+
+    except Exception:
+        raise HTTPException(
+            status_code=503,
+            detail="AI service unavailable"
+        )
+        session_id: str = "default"
+        
+@app.get("/history/{session_id}")
+def history(session_id: str):
+    return {
+        "session_id": session_id,
+        "messages": get_history(session_id)
+    }
+
+@app.delete("/history/{session_id}")
+def clear_history(session_id: str):
+    delete_history(session_id)
+    return {"status": "History deleted"}
+    
